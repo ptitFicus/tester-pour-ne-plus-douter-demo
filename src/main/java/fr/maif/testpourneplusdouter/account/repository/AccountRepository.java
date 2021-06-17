@@ -32,7 +32,7 @@ public class AccountRepository {
     public void setupDBIfNeeded() throws SQLException {
         try(final PreparedStatement preparedStatement = dataSource.getConnection().prepareStatement("""
             CREATE TABLE IF NOT EXISTS account (
-                id varchar(100),
+                id varchar(100) PRIMARY KEY,
                 customer varchar(100),
                 balance money,
                 closed boolean
@@ -57,6 +57,8 @@ public class AccountRepository {
                 .prepareStatement("""
                         INSERT INTO account(id, customer, balance, closed)
                         VALUES (?, ?, ?, ?)
+                        ON CONFLICT (id) DO UPDATE
+                            SET customer = EXCLUDED.customer, balance = EXCLUDED.balance, closed = EXCLUDED.closed
                         RETURNING id, customer, balance, closed
                     """)
         ) {
