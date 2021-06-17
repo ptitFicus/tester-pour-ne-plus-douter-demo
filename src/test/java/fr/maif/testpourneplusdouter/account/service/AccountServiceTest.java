@@ -10,9 +10,8 @@ import org.mockito.Mockito;
 
 import fr.maif.testpourneplusdouter.account.error.Error;
 import fr.maif.testpourneplusdouter.account.model.Account;
+import fr.maif.testpourneplusdouter.account.model.TransferResult;
 import fr.maif.testpourneplusdouter.account.repository.AccountRepository;
-import fr.maif.testpourneplusdouter.account.service.AccountService;
-import fr.maif.testpourneplusdouter.account.service.CustomerService;
 import io.vavr.control.Either;
 
 public class AccountServiceTest {
@@ -78,5 +77,55 @@ public class AccountServiceTest {
         final Either<Error, Account> maybeAccount = service.withdraw(accountId, new BigDecimal("-20"));
         assertThat(maybeAccount.isLeft()).isTrue();
         assertThat(maybeAccount.getLeft()).isEqualTo(Error.NEGATIVE_WITHDRAW);
+    }
+
+    @Test
+    public void transferShouldWorkProperly() {
+        final Either<Error, TransferResult> transferResults = AccountService.doTransfer(
+                new Account("foo", "cu1", new BigDecimal("10"), false),
+                new Account("bar", "cu2", new BigDecimal("10"), false),
+                new BigDecimal("5")
+        );
+
+        assertThat(transferResults.isRight()).isTrue();
+        final TransferResult result = transferResults.get();
+        assertThat(result.source().balance()).isEqualByComparingTo("5");
+        assertThat(result.target().balance()).isEqualByComparingTo("15");
+    }
+
+    @Test
+    public void transferShouldFailOnInsufficientBalance() {
+        final Either<Error, TransferResult> transferResults = AccountService.doTransfer(
+                new Account("foo", "cu1", new BigDecimal("10"), false),
+                new Account("bar", "cu2", new BigDecimal("10"), false),
+                new BigDecimal("15")
+        );
+
+        assertThat(transferResults.isLeft()).isTrue();
+        assertThat(transferResults.getLeft()).isEqualTo(Error.INSUFFICIENT_BALANCE);
+    }
+
+    @Test
+    public void transferShouldFailIfSourceAccountIsClosed() {
+        final Either<Error, TransferResult> transferResults = AccountService.doTransfer(
+                new Account("foo", "cu1", new BigDecimal("10"), true),
+                new Account("bar", "cu2", new BigDecimal("10"), false),
+                new BigDecimal("1")
+        );
+
+        assertThat(transferResults.isLeft()).isTrue();
+        assertThat(transferResults.getLeft()).isEqualTo(Error.ACCOUNT_CLOSED);
+    }
+
+    @Test
+    public void transferShouldFailIfTargetAccountIsClosed() {
+        final Either<Error, TransferResult> transferResults = AccountService.doTransfer(
+                new Account("foo", "cu1", new BigDecimal("10"), false),
+                new Account("bar", "cu2", new BigDecimal("10"), true),
+                new BigDecimal("5")
+        );
+
+        assertThat(transferResults.isLeft()).isTrue();
+        assertThat(transferResults.getLeft()).isEqualTo(Error.ACCOUNT_CLOSED);
     }
 }
