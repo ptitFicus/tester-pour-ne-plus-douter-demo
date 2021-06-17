@@ -27,7 +27,8 @@ public class AccountService {
             return Either.left(Error.NEGATIVE_WITHDRAW);
         }
         return repository.read(accountId)
-            .flatMap(account -> account.withdraw(amount));
+            .flatMap(account -> account.withdraw(amount))
+            .flatMap(repository::save);
     }
 
     public Either<Error, Account> deposit(String accountId, BigDecimal amount) {
@@ -35,7 +36,8 @@ public class AccountService {
             return Either.left(Error.NEGATIVE_DEPOSIT);
         }
         return repository.read(accountId)
-                .flatMap(account -> account.deposit(amount));
+                .flatMap(account -> account.deposit(amount))
+                .flatMap(repository::save);
     }
 
     public Either<Error, TransferResult> transfer(String from, String to, BigDecimal amount) {

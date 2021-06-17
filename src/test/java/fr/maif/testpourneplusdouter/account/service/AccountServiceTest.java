@@ -57,6 +57,9 @@ public class AccountServiceTest {
         Mockito.when(accountRepository.read(accountId)).thenAnswer(
                 __ -> Either.right(new Account(accountId, "customer", new BigDecimal("30"), false))
         );
+        Mockito.when(accountRepository.save(new Account(accountId, "customer", new BigDecimal("10"), false))).thenAnswer(
+                params -> Either.right(params.getArguments()[0])
+        );
         AccountService service = new AccountService(accountRepository, customerService);
 
         final Either<Error, Account> maybeAccount = service.withdraw(accountId, new BigDecimal("20"));
