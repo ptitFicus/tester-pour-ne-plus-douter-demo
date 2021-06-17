@@ -1,7 +1,5 @@
 package fr.maif.testpourneplusdouter.account.configuration;
 
-import java.util.Arrays;
-
 import javax.sql.DataSource;
 
 import org.postgresql.ds.PGSimpleDataSource;

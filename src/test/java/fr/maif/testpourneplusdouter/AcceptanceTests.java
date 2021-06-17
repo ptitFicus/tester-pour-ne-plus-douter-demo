@@ -4,11 +4,13 @@ import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +24,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -39,6 +42,7 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 class AcceptanceTests {
 
 	static EmbeddedPostgres postgres;
+	static AtomicBoolean databaseClosed = new AtomicBoolean(false);
 
 	static {
 		try {
@@ -66,17 +70,15 @@ class AcceptanceTests {
 	@BeforeAll
 	public static void init() throws SQLException {
 		customerServer.start();
-		try(final PreparedStatement statement = postgres.getPostgresDatabase().getConnection().prepareStatement("""
- 			CREATE DATABASE account;
-			CREATE USER accountuser WITH PASSWORD 'accountpassword';
- 			GRANT ALL PRIVILEGES ON DATABASE "account" to accountuser;
- 		""")) {
-			statement.execute();
-		}
+		initDB();
 	}
 
 	@AfterEach
-	public void tearDown() throws SQLException {
+	public void tearDown() throws SQLException, IOException {
+		if(databaseClosed.get()) {
+			postgres = EmbeddedPostgres.builder().start();
+			initDB();
+		}
 		try(final PreparedStatement statement = postgres.getDatabase("accountuser", "account").getConnection().prepareStatement("TRUNCATE account;")) {
 			statement.execute();
 		}
@@ -305,6 +307,28 @@ class AcceptanceTests {
 	}
 
 
+	@Test
+	@DirtiesContext
+	void createShouldReturnAnErrorWhenDatabaseIsDown() throws IOException {
+		shutdownDatabase();
+		String fromCustomer = "fromCustomer";
+		allowCustomer(fromCustomer);
+
+		final ResponseEntity<AccountDTO> response = create(fromCustomer, new BigDecimal("80"));
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(response.getBody().error).isEqualTo(Error.DB_ERROR.message);
+	}
+
+	void shutdownDatabase() {
+		databaseClosed.set(true);
+		try {
+			postgres.close();
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+
 	ResponseEntity<AccountDTO> create(String customer, BigDecimal balance) {
 		String body = """
 			{
@@ -391,6 +415,29 @@ class AcceptanceTests {
 							"""
 						)
 				));
+	}
+
+	static void initDB() throws SQLException {
+		try(final PreparedStatement statement = postgres.getPostgresDatabase().getConnection().prepareStatement("""
+ 			CREATE DATABASE account;
+			CREATE USER accountuser WITH PASSWORD 'accountpassword';
+ 			GRANT ALL PRIVILEGES ON DATABASE "account" to accountuser;
+ 		""")) {
+			statement.execute();
+		}
+
+		try(final PreparedStatement preparedStatement = postgres.getDatabase("accountuser", "account").getConnection().prepareStatement("""
+            CREATE TABLE IF NOT EXISTS account (
+                id varchar(100),
+                customer varchar(100),
+                balance money,
+                closed boolean
+            );
+            """
+		)) {
+			preparedStatement.execute();
+		}
+		databaseClosed.set(false);
 	}
 
 }
