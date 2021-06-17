@@ -443,7 +443,7 @@ class AcceptanceTests {
 
 		try(final PreparedStatement preparedStatement = postgres.getDatabase("accountuser", "account").getConnection().prepareStatement("""
             CREATE TABLE IF NOT EXISTS account (
-                id varchar(100),
+                id varchar(100) PRIMARY KEY,
                 customer varchar(100),
                 balance money,
                 closed boolean
