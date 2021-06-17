@@ -309,7 +309,7 @@ class AcceptanceTests {
 
 	@Test
 	@DirtiesContext
-	void createShouldReturnAnErrorWhenDatabaseIsDown() throws IOException {
+	void createShouldReturnAnErrorWhenDatabaseIsDown() {
 		shutdownDatabase();
 		String fromCustomer = "fromCustomer";
 		allowCustomer(fromCustomer);
@@ -317,6 +317,16 @@ class AcceptanceTests {
 		final ResponseEntity<AccountDTO> response = create(fromCustomer, new BigDecimal("80"));
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(response.getBody().error).isEqualTo(Error.DB_ERROR.message);
+	}
+
+	@Test
+	void createShouldReturnAnErrorWhenCustomerServiceIsDown() {
+		String fromCustomer = "fromCustomer";
+		crashCustomerService(fromCustomer);
+
+		final ResponseEntity<AccountDTO> response = create(fromCustomer, new BigDecimal("80"));
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(response.getBody().error).isEqualTo(Error.CUSTOMER_FETCH_ERROR.message);
 	}
 
 	void shutdownDatabase() {
@@ -415,6 +425,11 @@ class AcceptanceTests {
 							"""
 						)
 				));
+	}
+
+	void crashCustomerService(String customer) {
+		customerServer.stubFor(WireMock.get("/customers/" + customer)
+				.willReturn(WireMock.serverError().withHeader("Content-Type", "application/json")));
 	}
 
 	static void initDB() throws SQLException {
