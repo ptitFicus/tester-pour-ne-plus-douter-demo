@@ -1,4 +1,4 @@
-package fr.maif.testpourneplusdouter;
+package fr.maif.testpourneplusdouter.account.service;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -15,7 +15,7 @@ import fr.maif.testpourneplusdouter.account.service.AccountService;
 import fr.maif.testpourneplusdouter.account.service.CustomerService;
 import io.vavr.control.Either;
 
-public class UnitTests {
+public class AccountServiceTest {
     @Test
     public void withdrawShouldNotWorkIfBalanceIsTooLow() {
         final CustomerService customerService = Mockito.mock(CustomerService.class);
