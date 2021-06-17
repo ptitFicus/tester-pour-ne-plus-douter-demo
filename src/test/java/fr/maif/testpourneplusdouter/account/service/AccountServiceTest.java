@@ -1,5 +1,6 @@
 package fr.maif.testpourneplusdouter.account.service;
 
+import static org.assertj.core.api.AssertionsForClassTypes.anyOf;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.math.BigDecimal;
@@ -79,11 +80,45 @@ public class AccountServiceTest {
         assertThat(maybeAccount.getLeft()).isEqualTo(Error.NEGATIVE_WITHDRAW);
     }
 
+
     @Test
     public void transferShouldWorkProperly() {
+        final CustomerService customerService = Mockito.mock(CustomerService.class);
+        final AccountRepository accountRepository = Mockito.mock(AccountRepository.class);
+        String accountId1 = UUID.randomUUID().toString();
+        String accountId2 = UUID.randomUUID().toString();
+
+        String customer1 = "customer1";
+        String customer2 = "customer2";
+
+
+        Mockito.when(accountRepository.read(accountId1)).thenAnswer(
+                __ -> Either.right(new Account(accountId1, customer1, new BigDecimal("30"), false))
+        );
+        Mockito.when(accountRepository.read(accountId2)).thenAnswer(
+                __ -> Either.right(new Account(accountId2, customer2, new BigDecimal("30"), false))
+        );
+        Mockito.when(accountRepository.save(new Account(accountId1, customer1, new BigDecimal("20"), false))).thenAnswer(
+                p -> Either.right((Account)p.getArguments()[0])
+        );
+        Mockito.when(accountRepository.save(new Account(accountId2, customer2, new BigDecimal("40"), false))).thenAnswer(
+                p -> Either.right((Account)p.getArguments()[0])
+        );
+
+        AccountService service = new AccountService(accountRepository, customerService);
+        final Either<Error, TransferResult> transferResult = service.transfer(accountId1, accountId2, new BigDecimal("10"));
+
+        assertThat(transferResult.isRight()).isTrue();
+        final TransferResult result = transferResult.get();
+        assertThat(result.source().balance()).isEqualByComparingTo("20");
+        assertThat(result.target().balance()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    public void transferShouldWorkProperlyFineGrain() {
         final Either<Error, TransferResult> transferResults = AccountService.doTransfer(
-                new Account("foo", "cu1", new BigDecimal("10"), false),
-                new Account("bar", "cu2", new BigDecimal("10"), false),
+                new Account("foo", "customer1", new BigDecimal("10"), false),
+                new Account("bar", "customer2", new BigDecimal("10"), false),
                 new BigDecimal("5")
         );
 
